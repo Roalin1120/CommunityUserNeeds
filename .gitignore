@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+
+# Runtime / local data (do not publish chat exports or analysis DB)
+data/exports/*
+!data/exports/.gitkeep
+data/analysis.db
+data/*.db
+data/*.db-*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

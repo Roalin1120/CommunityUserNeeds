@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>用户数据分析结果</title>
+  <style>
+    body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; color: #222; background: #f6f8fb; }
+    .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+    .sidebar { background: #121826; color: #fff; padding: 20px 14px; }
+    .sidebar h3 { margin: 0 0 16px 0; font-size: 16px; }
+    .nav a { display: block; padding: 10px 12px; border-radius: 6px; color: #c9d3e0; text-decoration: none; margin-bottom: 8px; }
+    .nav a.active { background: #1f2a40; color: #fff; }
+    .content { padding: 22px; }
+    .card { background: #fff; border: 1px solid #e4e9f2; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+    .header-line { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .btn { padding: 8px 10px; border-radius: 6px; border: 1px solid #115cff; color: #fff; background: #115cff; text-decoration: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #e2e8f0; padding: 8px; font-size: 13px; text-align: left; vertical-align: top; white-space: pre-wrap; word-break: break-word; }
+    th { background: #f8fbff; }
+    .op-card { border: 1px solid #dde4f2; border-radius: 8px; padding: 10px; margin-top: 8px; }
+    .muted { color: #5f6f8a; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>后台管理</h3>
+      <nav class="nav">
+        <a href="/raw" target="_blank">原始数据导出</a>
+        <a class="active" href="/analysis">用户数据分析</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <div class="card">
+        <div><strong>文件名称：</strong>{{ run["file_name"] }}</div>
+        <div class="muted"><strong>分析时间：</strong>{{ run["analyzed_at"] }}</div>
+        {% if summary %}
+        <div style="margin-top:8px;"><strong>摘要：</strong>{{ summary }}</div>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <div class="header-line">
+          <h3 style="margin:0;">用户分析表格</h3>
+          <a class="btn" href="/analysis/{{ run['id'] }}/export">导出</a>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>编号</th>
+              <th>手机号</th>
+              <th>昵称</th>
+              <th>发言次数</th>
+              <th>用户类型</th>
+              <th>影响力</th>
+              <th>特点分析</th>
+              <th>建议</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td>{{ loop.revindex }}</td>
+              <td>{{ u.get("phone", "") }}</td>
+              <td>{{ u.get("nickname", "") }}</td>
+              <td>{{ u.get("message_count", 0) }}</td>
+              <td>{{ u.get("user_type", "") }}</td>
+              <td>{{ u.get("influence_score", "") }}</td>
+              <td>{{ u.get("analysis", "") }}</td>
+              <td>{{ u.get("suggestion", "") }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">商机分析</h3>
+        {% for o in opportunities %}
+        <div class="op-card">
+          <div><strong>{{ o.get("name", "") }}</strong></div>
+          <div><strong>为什么：</strong>{{ o.get("reason", "") }}</div>
+          <div><strong>怎么做：</strong>{{ o.get("execution_plan", "") }}</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">车型当地售价分析</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>编号</th>
+              <th>商品</th>
+              <th>地点</th>
+              <th>价格</th>
+              <th>汇率</th>
+              <th>折算美金价格</th>
+              <th>用户</th>
+              <th>手机号码</th>
+              <th>发言时间</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in local_price_analysis %}
+            <tr>
+              <td>{{ loop.revindex }}</td>
+              <td>{{ p.get("product", p.get("car_model", "")) }}</td>
+              <td>{{ p.get("location", "") }}</td>
+              <td>{{ p.get("price", "") }}</td>
+              <td>{{ p.get("fx_rate", "") }}</td>
+              <td>{{ p.get("price_usd", "") }}</td>
+              <td>{{ p.get("user", "") }}</td>
+              <td>{{ p.get("phone", "") }}</td>
+              <td>{{ p.get("message_time", "") }}</td>
+              <td>{{ p.get("remark", "") }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

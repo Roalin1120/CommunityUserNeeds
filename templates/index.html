@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhatsApp 导出后台</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 24px;
+      color: #222;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      background: #fff;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    input, button, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    button {
+      cursor: pointer;
+      background: #0b5cff;
+      border-color: #0b5cff;
+      color: #fff;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .hint {
+      color: #666;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    .error {
+      color: #b00020;
+      margin: 8px 0 0 0;
+      font-size: 14px;
+    }
+    .ok {
+      color: #096b2f;
+      margin: 8px 0 0 0;
+      font-size: 14px;
+    }
+    pre {
+      background: #0e1116;
+      color: #d7e0ea;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      vertical-align: top;
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    th { background: #f5f7fb; }
+  </style>
+</head>
+<body>
+  <h2>WhatsApp 原始数据导出后台</h2>
+
+  <div class="card">
+    <form method="post" action="/import" enctype="multipart/form-data">
+      <div>
+        <label for="chat_files">导入聊天记录（.txt / .html / .json，可多选）</label>
+        <input id="chat_files" name="chat_files" type="file" accept=".txt,.html,.htm,.json,text/plain,text/html,application/json" multiple required />
+        <div class="hint">可多选。确认上传后保存到固定目录，按「时间戳+会话名+原扩展名」命名。</div>
+      </div>
+      <div class="actions">
+        <button type="submit">导入到固定目录</button>
+      </div>
+      {% if upload_msg %}
+      <p class="ok">{{ upload_msg }}</p>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="card">
+    <form method="post">
+      <div class="grid">
+        <div>
+          <label for="export_file">选择具体群（导出文件）</label>
+          <select id="export_file" name="export_file">
+            <option value="">—— 未选择，将使用下方群名称匹配 ——</option>
+            {% for item in available_exports %}
+            <option value="{{ item.file }}" {% if export_file == item.file %}selected{% endif %}>{{ item.label }}</option>
+            {% endfor %}
+          </select>
+          <div class="hint">将手机导出的聊天文本放入固定目录后刷新本页，即可在下拉列表中看到文件。</div>
+        </div>
+        <div>
+          <label for="group_name">群名称（未选文件时必填，支持部分匹配文件名或标题）</label>
+          <input id="group_name" name="group_name" value="{{ group_name }}" placeholder="例如：Dubai Car Group" />
+        </div>
+        <div>
+          <label for="start_at">起始时间（精确到分钟）</label>
+          <input id="start_at" name="start_at" type="datetime-local" required value="{{ start_at }}" />
+        </div>
+        <div>
+          <label for="end_at">结束时间（精确到分钟）</label>
+          <input id="end_at" name="end_at" type="datetime-local" required value="{{ end_at }}" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit">查询预览</button>
+        <button type="submit" formaction="/export" formmethod="post">下载 CSV</button>
+      </div>
+      <div class="actions">
+        <button type="submit" name="action" value="analyze">使用 Gemini 分析</button>
+      </div>
+      <div class="hint">固定导出目录：{{ export_dir }}（仅识别该目录下的 *.txt）</div>
+      <div class="hint">请在系统环境变量中设置：GEMINI_API_KEY（模型：gemini-2.5-flash-lite）</div>
+      {% if error %}
+      <p class="error">{{ error }}</p>
+      {% endif %}
+      {% if analysis_error %}
+      <p class="error">{{ analysis_error }}</p>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if rows %}
+  <div class="card">
+    <div>查询结果：共 {{ rows|length }} 条</div>
+    <table>
+      <thead>
+        <tr>
+          <th>发言人名称</th>
+          <th>发言人手机号码</th>
+          <th>发言时间</th>
+          <th>发言内容</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.speaker_name }}</td>
+          <td>{{ row.speaker_phone }}</td>
+          <td>{{ row.sent_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td>{{ row.content }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if analysis_result %}
+  <div class="card">
+    <div>Gemini 分析结果（JSON）</div>
+    <pre>{{ analysis_result }}</pre>
+  </div>
+  {% endif %}
+  <script>
+    // Keep local server alive only while this page is open.
+    const HEARTBEAT_MS = 5000;
+    const sendHeartbeat = () => {
+      fetch("/heartbeat", { method: "POST", keepalive: true }).catch(() => {});
+    };
+    sendHeartbeat();
+    setInterval(sendHeartbeat, HEARTBEAT_MS);
+    window.addEventListener("beforeunload", sendHeartbeat);
+  </script>
+</body>
+</html>

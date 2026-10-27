@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>用户数据分析管理</title>
+  <style>
+    body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; color: #222; background: #f6f8fb; }
+    .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+    .sidebar { background: #121826; color: #fff; padding: 20px 14px; }
+    .sidebar h3 { margin: 0 0 16px 0; font-size: 16px; }
+    .nav a { display: block; padding: 10px 12px; border-radius: 6px; color: #c9d3e0; text-decoration: none; margin-bottom: 8px; }
+    .nav a.active { background: #1f2a40; color: #fff; }
+    .content { padding: 22px; }
+    .card { background: #fff; border: 1px solid #e4e9f2; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+    .row { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 10px; }
+    label { display: block; font-size: 13px; margin-bottom: 6px; color: #51607a; }
+    input, select, button { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; border: 1px solid #c8d2e1; font-size: 14px; }
+    select[multiple] { min-height: 160px; }
+    button { cursor: pointer; background: #115cff; border-color: #115cff; color: #fff; }
+    .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #e2e8f0; padding: 8px; font-size: 13px; text-align: left; }
+    th { background: #f8fbff; }
+    .modal { position: fixed; inset: 0; display: none; background: rgba(0,0,0,0.35); align-items: center; justify-content: center; }
+    .modal.show { display: flex; }
+    .modal-body { width: 520px; max-width: 90vw; background: #fff; border-radius: 10px; border: 1px solid #d7deea; padding: 16px; }
+    .small { font-size: 12px; color: #687896; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>后台管理</h3>
+      <nav class="nav">
+        <a href="/raw" target="_blank">原始数据导出</a>
+        <a class="active" href="/analysis">用户数据分析</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <div class="card">
+        <form method="get">
+          <div class="row">
+            <div>
+              <label for="file_name">文件名</label>
+              <input id="file_name" name="file_name" value="{{ file_name }}" placeholder="支持部分匹配" />
+            </div>
+            <div>
+              <label for="start_date">开始分析日期</label>
+              <input id="start_date" name="start_date" type="date" value="{{ start_date }}" />
+            </div>
+            <div>
+              <label for="end_date">结束分析日期</label>
+              <input id="end_date" name="end_date" type="date" value="{{ end_date }}" />
+            </div>
+            <div class="actions" style="align-items: end;">
+              <button type="submit">查询</button>
+            </div>
+          </div>
+        </form>
+        <div class="actions">
+          <button type="button" id="openModalBtn">新增</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>编号</th>
+              <th>文件名称</th>
+              <th>分析时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in runs %}
+            <tr>
+              <td>{{ row["id"] }}</td>
+              <td>{{ row["file_name"] }}</td>
+              <td>{{ row["analyzed_at"] }}</td>
+              <td><a href="/analysis/{{ row['id'] }}" target="_blank">查看</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal" id="newModal">
+    <div class="modal-body">
+      <h3 style="margin-top: 0;">新增用户数据分析</h3>
+      <form id="analysisRunForm" method="post" action="/analysis/run" target="_blank">
+        <label for="export_files">选择对话文件（可多选：按住 Ctrl 或 Shift 点选）</label>
+        <select id="export_files" name="export_files" multiple size="10">
+          {% for item in available_exports %}
+          <option value="{{ item.file }}">{{ item.label }}</option>
+          {% endfor %}
+        </select>
+        <div class="small">支持 .txt / .html(.htm) / .json；多文件将按时间合并后一并分析。文件目录：data\exports\</div>
+        <div class="actions" style="margin-top: 8px;">
+          <button type="button" id="openExportsBtn" style="background:#4c6ef5;border-color:#4c6ef5;">打开固定目录</button>
+        </div>
+        <div class="actions" style="margin-top: 12px;">
+          <button type="button" id="closeModalBtn" style="background:#8a95a8;border-color:#8a95a8;">取消</button>
+          <button type="submit">开始分析</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const modal = document.getElementById("newModal");
+    document.getElementById("openModalBtn").addEventListener("click", () => modal.classList.add("show"));
+    document.getElementById("closeModalBtn").addEventListener("click", () => modal.classList.remove("show"));
+    document.getElementById("analysisRunForm").addEventListener("submit", () => {
+      modal.classList.remove("show");
+    });
+    document.getElementById("openExportsBtn").addEventListener("click", async () => {
+      try {
+        const resp = await fetch("/analysis/open-exports", { method: "POST" });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          alert(txt || "打开目录失败");
+        }
+      } catch (e) {
+        alert("打开目录失败，请检查服务状态。");
+      }
+    });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("show"); });
+  </script>
+</body>
+</html>
